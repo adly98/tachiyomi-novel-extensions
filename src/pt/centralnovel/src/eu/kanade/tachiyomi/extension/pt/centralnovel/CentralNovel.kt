@@ -2,14 +2,13 @@ package eu.kanade.tachiyomi.extension.pt.centralnovel
 
 import android.app.Application
 import android.content.SharedPreferences
-import android.graphics.Bitmap
 import android.text.Layout.Alignment
-import android.util.Base64
+import android.widget.Toast
 import androidx.preference.ListPreference
 import androidx.preference.PreferenceScreen
 import androidx.preference.SeekBarPreference
 import androidx.preference.SwitchPreferenceCompat
-import eu.kanade.tachiyomi.lib.dataimage.DataImageInterceptor
+import eu.kanade.tachiyomi.lib.novelinterceptor.NovelInterceptor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.asObservableSuccess
 import eu.kanade.tachiyomi.source.ConfigurableSource
@@ -31,7 +30,6 @@ import org.jsoup.nodes.Element
 import rx.Observable
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -45,27 +43,28 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
 
     override val supportsLatest = true
 
-    override val client: OkHttpClient = network.cloudflareClient
-        .newBuilder()
-        .addInterceptor(DataImageInterceptor())
-        .build()
+    override val client: OkHttpClient by lazy {
+        network.cloudflareClient
+            .newBuilder()
+            .addInterceptor(NovelInterceptor(noveltomanga))
+            .build()
+    }
 
     override fun headersBuilder(): Headers.Builder = Headers.Builder()
         .add("Referer", "$baseUrl/")
-        .add("User-Agent", USER_AGENT)
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
-    private val noveltomanga by lazy {
-        NovelToManga().apply {
-            fontSize = preferences.getInt(PREF_FONTSIZE_KEY, 30).toFloat()
-            margin = preferences.getInt(PREF_MARGIN_KEY, 30).toFloat()
-            theme = DefaultThemes.valueOf(preferences.getString(PREF_THEME_KEY, "DARK")!!)
-            val centered = preferences.getBoolean(PREF_CENTERED_KEY, false)
-            alignment = if (centered) Alignment.ALIGN_CENTER else Alignment.ALIGN_NORMAL
-        }
+    val noveltomanga = NovelToManga().apply {
+        val centered = preferences.getBoolean(PREF_CENTERED_KEY, PREF_CENTERED_DEFAULT)
+        alignment = if (centered) Alignment.ALIGN_CENTER else Alignment.ALIGN_NORMAL
+        fontSize = preferences.getInt(PREF_FONTSIZE_KEY, PREF_FONTSIZE_DEFAULT).toFloat()
+        margin = preferences.getInt(PREF_MARGIN_KEY, PREF_MARGIN_DEFAULT).toFloat()
+        pageHeight = preferences.getInt(PREF_HEIGHT_KEY, PREF_HEIGHT_DEFAULT)
+        pageWidth = preferences.getInt(PREF_WIDTH_KEY, PREF_WIDTH_DEFAULT)
+        theme = DefaultThemes.valueOf(preferences.getString(PREF_THEME_KEY, PREF_THEME_DEFAULT)!!)
     }
 
     // ============================== Popular ===============================
@@ -188,23 +187,14 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
             }
         }
         // else, turn the novel-text into images
-        val elements = content.let {
-            val spans = it.select("span")
-            if (spans.size > 0) {
-                spans
-            } else {
-                it.select("p")
-            }
-        }
+        val elements = content.select("p")
         val lines = elements.map { it.text() }
 
-        val bitmaps = noveltomanga.getMangaPages(lines)
+        val textPages = noveltomanga.getTextPages(lines)
 
-        val encodedUrls = bitmaps.toBase64Urls()
-
-        return encodedUrls
-            .mapIndexed { page, encodedImageUrl ->
-                Page(page, "", encodedImageUrl)
+        return textPages
+            .mapIndexed { pageIndex, pageText ->
+                Page(pageIndex, "", NovelInterceptor.createUrl(pageText))
             }
     }
 
@@ -217,7 +207,7 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
             title = PREF_THEME_TITLE
             entries = PREF_THEME_ENTRIES
             entryValues = PREF_THEME_VALUES
-            setDefaultValue("DARK")
+            setDefaultValue(PREF_THEME_DEFAULT)
             summary = "%s"
             setOnPreferenceChangeListener { _, newValue ->
                 val selected = newValue as String
@@ -231,7 +221,7 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
         val centeredPref = SwitchPreferenceCompat(screen.context).apply {
             key = PREF_CENTERED_KEY
             title = PREF_CENTERED_TITLE
-            setDefaultValue(false)
+            setDefaultValue(PREF_CENTERED_DEFAULT)
 
             setOnPreferenceChangeListener { _, newValue ->
                 val checkValue = newValue as Boolean
@@ -246,9 +236,9 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
         val fontSizePref = SeekBarPreference(screen.context).apply {
             key = PREF_FONTSIZE_KEY
             title = PREF_FONTSIZE_TITLE
-            setDefaultValue(30)
-            setMin(10)
-            setMax(100)
+            setDefaultValue(PREF_FONTSIZE_DEFAULT)
+            setMin(PREF_FONTSIZE_MIN)
+            setMax(PREF_FONTSIZE_MAX)
             setShowSeekBarValue(true)
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -261,9 +251,9 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
         val marginWidthPref = SeekBarPreference(screen.context).apply {
             key = PREF_MARGIN_KEY
             title = PREF_MARGIN_TITLE
-            setDefaultValue(30)
-            setMin(20)
-            setMax(500)
+            setDefaultValue(PREF_MARGIN_DEFAULT)
+            setMin(PREF_MARGIN_MIN)
+            setMax(PREF_MARGIN_MAX)
             setShowSeekBarValue(true)
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -273,23 +263,79 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
             }
         }
 
+        val pageHeightPref = SeekBarPreference(screen.context).apply {
+            key = PREF_HEIGHT_KEY
+            title = PREF_HEIGHT_TITLE
+            setDefaultValue(PREF_HEIGHT_DEFAULT)
+            setMin(PREF_PAGESIZE_MIN)
+            setMax(PREF_PAGESIZE_MAX)
+            setShowSeekBarValue(true)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val num = newValue as Int
+                noveltomanga.pageHeight = num
+                preferences.edit().putInt(key, num).commit()
+            }
+        }
+
+        val pageWidthPref = SeekBarPreference(screen.context).apply {
+            key = PREF_WIDTH_KEY
+            title = PREF_WIDTH_TITLE
+            setDefaultValue(PREF_WIDTH_DEFAULT)
+            setMin(PREF_PAGESIZE_MIN)
+            setMax(PREF_PAGESIZE_MAX)
+            setShowSeekBarValue(true)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val num = newValue as Int
+                noveltomanga.pageWidth = num
+                preferences.edit().putInt(key, num).commit()
+            }
+        }
+
+        val resetPref = SwitchPreferenceCompat(screen.context).apply {
+            key = PREF_RESET_KEY
+            title = PREF_RESET_TITLE
+            setDefaultValue(PREF_RESET_DEFAULT)
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val checkValue = newValue as Boolean
+                if (checkValue) {
+                    preferences.edit().apply {
+                        noveltomanga.theme = DefaultThemes.valueOf(PREF_THEME_DEFAULT)
+                        putString(PREF_THEME_KEY, PREF_THEME_DEFAULT)
+
+                        noveltomanga.alignment = Alignment.ALIGN_NORMAL
+                        putBoolean(PREF_CENTERED_KEY, PREF_CENTERED_DEFAULT)
+
+                        noveltomanga.fontSize = PREF_FONTSIZE_DEFAULT.toFloat()
+                        putInt(PREF_FONTSIZE_KEY, PREF_FONTSIZE_DEFAULT)
+
+                        noveltomanga.margin = PREF_MARGIN_DEFAULT.toFloat()
+                        putInt(PREF_MARGIN_KEY, PREF_MARGIN_DEFAULT)
+
+                        noveltomanga.pageHeight = PREF_HEIGHT_DEFAULT
+                        putInt(PREF_HEIGHT_KEY, PREF_HEIGHT_DEFAULT)
+
+                        noveltomanga.pageWidth = PREF_WIDTH_DEFAULT
+                        putInt(PREF_WIDTH_KEY, PREF_WIDTH_DEFAULT)
+
+                        Toast.makeText(screen.context, REOPEN_PREFERENCES, Toast.LENGTH_LONG).show()
+                    }.commit()
+                } else { true }
+            }
+        }
+
         screen.addPreference(themePref)
         screen.addPreference(centeredPref)
         screen.addPreference(fontSizePref)
         screen.addPreference(marginWidthPref)
+        screen.addPreference(pageHeightPref)
+        screen.addPreference(pageWidthPref)
+        screen.addPreference(resetPref)
     }
 
     // ============================= Utilities ==============================
-
-    private fun List<Bitmap>.toBase64Urls(): List<String> {
-        return map { bitmap ->
-            val outputStream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
-            val byteArray = outputStream.toByteArray()
-            val encodedImage = Base64.encodeToString(byteArray, Base64.DEFAULT)
-            "https://127.0.0.1/?image/jpeg;base64,$encodedImage"
-        }
-    }
 
     private fun String.toDate(): Long {
         return runCatching { DATE_FORMATTER.parse(trim())?.time }
@@ -319,21 +365,43 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
             SimpleDateFormat("MMMMM dd, yyyy", Locale("pt", "BR"))
         }
 
-        private const val USER_AGENT = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/103.0.5060.71 Mobile Safari/537.36"
-
         const val PREFIX_SEARCH = "slug:"
 
         private const val PREF_CENTERED_KEY = "centered_pref"
         private const val PREF_CENTERED_TITLE = "Centralizar texto"
+        private const val PREF_CENTERED_DEFAULT = false
 
         private const val PREF_FONTSIZE_KEY = "fontsize_pref"
         private const val PREF_FONTSIZE_TITLE = "Tamanho da fonte"
+        private const val PREF_FONTSIZE_DEFAULT = 30
+        private const val PREF_FONTSIZE_MIN = 10
+        private const val PREF_FONTSIZE_MAX = 100
 
         private const val PREF_MARGIN_KEY = "margin_pref"
         private const val PREF_MARGIN_TITLE = "Largura da margem"
+        private const val PREF_MARGIN_DEFAULT = 30
+        private const val PREF_MARGIN_MIN = 20
+        private const val PREF_MARGIN_MAX = 500
+
+        private const val PREF_HEIGHT_KEY = "pageheight_pref"
+        private const val PREF_HEIGHT_TITLE = "Altura das páginas"
+        private const val PREF_HEIGHT_DEFAULT = 1536
+
+        private const val PREF_WIDTH_KEY = "pagewidth_pref"
+        private const val PREF_WIDTH_TITLE = "Largura das páginas"
+        private const val PREF_WIDTH_DEFAULT = 1080
+
+        private const val PREF_PAGESIZE_MIN = 240
+        private const val PREF_PAGESIZE_MAX = 4096
+
+        private const val PREF_RESET_KEY = "reset_pref"
+        private const val PREF_RESET_TITLE = "Resetar preferências para o padrão"
+        private const val PREF_RESET_DEFAULT = false
+        private const val REOPEN_PREFERENCES = "Reabra as configurações da extensão."
 
         private const val PREF_THEME_KEY = "theme_pref"
         private const val PREF_THEME_TITLE = "Tema preferido"
+        private const val PREF_THEME_DEFAULT = "DARK"
         private val PREF_THEME_ENTRIES = arrayOf("Preto", "Escuro", "Claro")
         private val PREF_THEME_VALUES = enumValues<DefaultThemes>()
             .map { it.name }
