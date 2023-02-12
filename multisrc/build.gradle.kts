@@ -1,3 +1,4 @@
+
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -13,6 +14,10 @@ android {
     defaultConfig {
         minSdk = 29
         targetSdk = AndroidConfig.targetSdk
+    }
+
+    kotlinOptions {
+        freeCompilerArgs += "-opt-in=kotlinx.serialization.ExperimentalSerializationApi"
     }
 }
 
@@ -71,7 +76,7 @@ tasks {
                 throw Exception("Java process failed with exit code: $exitCode")
             }
         }
-        dependsOn("ktLint", "assembleDebug")
+        dependsOn("ktFormat", "ktLint", "assembleDebug")
     }
 
     register<org.jmailen.gradle.kotlinter.tasks.LintTask>("ktLint") {

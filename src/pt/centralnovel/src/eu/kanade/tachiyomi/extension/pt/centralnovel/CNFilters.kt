@@ -7,10 +7,10 @@ object CNFilters {
 
     open class QueryPartFilter(
         displayName: String,
-        val vals: Array<Pair<String, String>>
+        val vals: Array<Pair<String, String>>,
     ) : Filter.Select<String>(
         displayName,
-        vals.map { it.first }.toTypedArray()
+        vals.map { it.first }.toTypedArray(),
     ) {
 
         fun toQueryPart() = vals[state].second
@@ -34,30 +34,30 @@ object CNFilters {
 
     class GenresFilter : CheckBoxFilterList(
         "Gêneros",
-        CNFiltersData.genres.map { CheckBoxVal(it.first, false) }
+        CNFiltersData.genres.map { CheckBoxVal(it.first, false) },
     )
 
     class TypesFilter : CheckBoxFilterList(
         "Tipo",
-        CNFiltersData.types.map { CheckBoxVal(it.first, false) }
+        CNFiltersData.types.map { CheckBoxVal(it.first, false) },
     )
 
     val filterList = FilterList(
         OrderFilter(),
         StatusFilter(),
         TypesFilter(),
-        GenresFilter()
+        GenresFilter(),
     )
 
     data class FilterSearchParams(
         val order: String = "",
         val status: String = "",
         val types: List<String> = emptyList<String>(),
-        val genres: List<String> = emptyList<String>()
+        val genres: List<String> = emptyList<String>(),
     )
 
     private inline fun <reified R> FilterList.parseCheckbox(
-        array: Array<Pair<String, String>>
+        array: Array<Pair<String, String>>,
     ): List<String> {
         val items = (this.getFirst<R>() as CheckBoxFilterList)
             .state
@@ -74,7 +74,7 @@ object CNFilters {
             filters.asQueryPart<OrderFilter>(),
             filters.asQueryPart<StatusFilter>(),
             filters.parseCheckbox<TypesFilter>(CNFiltersData.types),
-            filters.parseCheckbox<GenresFilter>(CNFiltersData.genres)
+            filters.parseCheckbox<GenresFilter>(CNFiltersData.genres),
         )
     }
 
@@ -88,14 +88,14 @@ object CNFilters {
             Pair("Novel Coreana", "novel-coreana"),
             Pair("Novel Japonesa", "novel-japonesa"),
             Pair("Novel Ocidental", "novel-ocidental"),
-            Pair("Webnovel", "webnovel")
+            Pair("Webnovel", "webnovel"),
         )
 
         val status = arrayOf(
             every,
             Pair("Em andamento", "em andamento"),
             Pair("Hiato", "hiato"),
-            Pair("Completo", "completo")
+            Pair("Completo", "completo"),
         )
 
         val orders = arrayOf(
@@ -104,7 +104,7 @@ object CNFilters {
             Pair("Z-A", "titlereverse"),
             Pair("Últ. Att", "update"),
             Pair("Últ. Add", "latest"),
-            Pair("Populares", "popular")
+            Pair("Populares", "popular"),
         )
 
         val genres = arrayOf(
@@ -149,7 +149,7 @@ object CNFilters {
             Pair("Vida Escolar", "vida-escolar"),
             Pair("VRMMO", "vrmmo"),
             Pair("Xianxia", "xianxia"),
-            Pair("Xuanhuan", "xuanhuan")
+            Pair("Xuanhuan", "xuanhuan"),
         )
     }
 }

@@ -73,7 +73,7 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
     override fun popularMangaSelector(): String = "div.serieslist.pop div.imgseries > a.series"
 
     override fun popularMangaFromElement(element: Element): SManga = SManga.create().apply {
-        val imgElement = element.selectFirst("img")
+        val imgElement = element.selectFirst("img")!!
         title = imgElement.attr("title")
         thumbnail_url = imgElement.attr("src").substringBefore("=") + "=151,215"
         setUrlWithoutDomain(element.attr("href"))
@@ -122,16 +122,21 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
     private fun searchMangaRequest(page: Int, query: String, filters: CNFilters.FilterSearchParams): Request {
         val url = "$baseUrl/series/".toHttpUrl().newBuilder()
         url.addQueryParameter("page", page.toString())
-        if (query.isNotBlank())
+        if (query.isNotBlank()) {
             url.addQueryParameter("s", query)
-        if (filters.status.isNotBlank())
+        }
+        if (filters.status.isNotBlank()) {
             url.addQueryParameter("status", filters.status)
-        if (filters.order.isNotBlank())
+        }
+        if (filters.order.isNotBlank()) {
             url.addQueryParameter("order", filters.order)
-        if (filters.genres.size > 0)
+        }
+        if (filters.genres.size > 0) {
             filters.genres.forEach { url.addQueryParameter("genre[]", it) }
-        if (filters.types.size > 0)
+        }
+        if (filters.types.size > 0) {
             filters.types.forEach { url.addQueryParameter("types[]", it) }
+        }
         return GET(url.build().toString(), headers)
     }
 
@@ -146,15 +151,15 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
 
     // =========================== Manga Details ============================
     override fun mangaDetailsParse(document: Document): SManga = SManga.create().apply {
-        val img = document.selectFirst("div.thumb > img")
-        val info = document.selectFirst("div.ninfo > div.info-content")
+        val img = document.selectFirst("div.thumb > img")!!
+        val info = document.selectFirst("div.ninfo > div.info-content")!!
         title = img.attr("title")
         thumbnail_url = img.attr("src")
         author = info.getInfo("Autor:")
         genre = info.select("div.genxed > a").joinToString(", ") { it.text() }
         status = info.getInfo("Status:")!!.toStatus()
-        var desc = document.selectFirst("div.entry-content").text() + "\n"
-        document.selectFirst("div.ninfo > span.alter").let {
+        var desc = document.selectFirst("div.entry-content")!!.text() + "\n"
+        document.selectFirst("div.ninfo > span.alter")?.let {
             desc += "\nTítulos Alternativos: ${it.text()}"
         }
         info.getInfo("Tipo:", false)?.let { desc += "\n$it" }
@@ -166,19 +171,19 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
     override fun chapterListSelector() = "div.eplister li > a"
 
     override fun chapterFromElement(element: Element): SChapter = SChapter.create().apply {
-        val num = element.selectFirst("div.epl-num").text()
+        val num = element.selectFirst("div.epl-num")!!.text()
         chapter_number = runCatching {
             num.substringAfter("Cap. ").substringBefore(" ").toFloat()
         }.getOrNull() ?: 0F
-        name = num + " " + element.selectFirst("div.epl-title").text()
-        date_upload = element.selectFirst("div.epl-date").text().toDate()
+        name = num + " " + element.selectFirst("div.epl-title")!!.text()
+        date_upload = element.selectFirst("div.epl-date")!!.text().toDate()
         setUrlWithoutDomain(element.attr("href"))
     }
 
     // =============================== Pages ================================
 
     override fun pageListParse(document: Document): List<Page> {
-        val content = document.selectFirst("div.epcontent")
+        val content = document.selectFirst("div.epcontent")!!
         val imgs = content.select("img")
         // if it has images, then show it
         if (imgs.size > 0) {

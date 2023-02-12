@@ -22,13 +22,10 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import okhttp3.FormBody
 import okhttp3.Headers
-import okhttp3.Interceptor
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
-import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
-import okhttp3.ResponseBody.Companion.toResponseBody
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import rx.Observable
 import uy.kohesive.injekt.Injekt
@@ -42,14 +39,13 @@ import java.util.concurrent.TimeUnit
 abstract class MangasProject(
     override val name: String,
     override val baseUrl: String,
-    override val lang: String
+    override val lang: String,
 ) : ConfigurableSource, HttpSource() {
 
     override val supportsLatest = true
 
     // Sometimes the site is slow.
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
-        .addInterceptor(::AndroidHttpClientInterceptor)
         .connectTimeout(1, TimeUnit.MINUTES)
         .readTimeout(1, TimeUnit.MINUTES)
         .writeTimeout(1, TimeUnit.MINUTES)
@@ -134,7 +130,9 @@ abstract class MangasProject(
             client.newCall(searchMangaByIdRequest(id))
                 .asObservableSuccess()
                 .map { response -> searchMangaByIdParse(response, id) }
-        } else super.fetchSearchManga(page, query, filters)
+        } else {
+            super.fetchSearchManga(page, query, filters)
+        }
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
@@ -154,8 +152,9 @@ abstract class MangasProject(
         val result = response.parseAs<MangasProjectSearchDto>()
 
         // If "series" have boolean false value, then it doesn't have results.
-        if (result.series is JsonPrimitive)
+        if (result.series is JsonPrimitive) {
             return MangasPage(emptyList(), false)
+        }
 
         val searchMangas = json.decodeFromJsonElement<List<MangasProjectSerieDto>>(result.series)
             .map(::searchMangaFromObject)
@@ -174,12 +173,12 @@ abstract class MangasProject(
     override fun mangaDetailsParse(response: Response): SManga {
         val document = response.asJsoup()
 
-        val seriesData = document.selectFirst("#series-data")
+        val seriesData = document.selectFirst("#series-data")!!
 
         val isCompleted = seriesData.selectFirst("span.series-author i.complete-series") != null
 
         // Check if the manga was removed by the publisher.
-        val seriesBlocked = document.selectFirst("div.series-blocked-img:has(img[src$=blocked.svg])")
+        val seriesBlocked = document.selectFirst("div.series-blocked-img:has(img[src$=blocked.svg])")!!
 
         val seriesAuthors = document.select("div#series-data span.series-author").text()
             .substringAfter("Completo")
@@ -193,12 +192,12 @@ abstract class MangasProject(
                         .split(", ")
                         .reversed()
                         .joinToString(" ")
-                }
+                },
             )
 
         return SManga.create().apply {
-            thumbnail_url = seriesData.select("div.series-img > div.cover > img").attr("src")
-            description = seriesData.select("span.series-desc > span").text()
+            thumbnail_url = seriesData.selectFirst("div.series-img > div.cover > img")!!.attr("src")
+            description = seriesData.selectFirst("span.series-desc > span")!!.text()
 
             status = parseStatus(seriesBlocked, isCompleted)
             author = seriesAuthors[false]?.joinToString(", ") ?: author
@@ -217,8 +216,9 @@ abstract class MangasProject(
     // ============================ Chapter List ============================
 
     override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
-        if (manga.status != SManga.LICENSED)
+        if (manga.status != SManga.LICENSED) {
             return super.fetchChapterList(manga)
+        }
 
         return Observable.error(Exception(MangasProjectConstants.MANGA_REMOVED))
     }
@@ -250,8 +250,9 @@ abstract class MangasProject(
         var chapterListResult = client.newCall(chapterListRequest).execute()
             .parseAs<MangasProjectChapterListDto>()
 
-        if (chapterListResult.chapters is JsonPrimitive)
+        if (chapterListResult.chapters is JsonPrimitive) {
             return emptyList()
+        }
 
         val chapters = json.decodeFromJsonElement<List<MangasProjectChapterDto>>(chapterListResult.chapters)
             .flatMap(::chaptersFromObject)
@@ -321,7 +322,7 @@ abstract class MangasProject(
 
     override fun pageListParse(response: Response): List<Page> {
         val document = response.asJsoup()
-        val pagesKey = MangasProjectUtils.getPagesKey(document)
+        val pagesKey = getPagesKey(document)
             ?: throw Exception(MangasProjectConstants.TOKEN_NOT_FOUND)
         val chapterUrl = getChapterUrl(response)
 
@@ -331,14 +332,16 @@ abstract class MangasProject(
 
         val format = preferences.getString(
             MangasProjectConstants.PREFERRED_FORMAT_KEY,
-            MangasProjectConstants.FORMAT_LIST.last()
+            MangasProjectConstants.FORMAT_LIST.last(),
         )
 
         return apiResponse.images
             .mapIndexed { i, imageObject ->
                 val image = if (format == "webp") {
                     imageObject.legacy
-                } else imageObject.avif
+                } else {
+                    imageObject.avif
+                }
 
                 Page(i, chapterUrl, image)
             }
@@ -365,7 +368,6 @@ abstract class MangasProject(
     // ============================== Settings ==============================
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-
         val preferredFormat = ListPreference(screen.context).apply {
             title = MangasProjectConstants.PREFERRED_FORMAT_TITLE
             key = MangasProjectConstants.PREFERRED_FORMAT_KEY
@@ -385,8 +387,14 @@ abstract class MangasProject(
 
     // ============================= Utilities ==============================
 
+    fun getPagesKey(document: Document): String? {
+        val docHtml = document.html()
+        val token = TOKEN_REGEX.find(docHtml)?.groupValues?.elementAt(1)
+        return token
+    }
+
     private inline fun <reified T> Response.parseAs(): T {
-        val responseBody = body?.string().orEmpty()
+        val responseBody = body.string()
 
         val errorResult = json.decodeFromString<MangasProjectErrorDto>(responseBody)
 
@@ -405,28 +413,13 @@ abstract class MangasProject(
         }
     }
 
-    private fun AndroidHttpClientInterceptor(chain: Interceptor.Chain): Response {
-        val request = chain.request()
-        val url: String = request.url.toString()
-        if ("/manga/" !in url && "/ler/" !in url) {
-            return chain.proceed(request)
-        }
-        val responseType = "text/html; charset=UTF-8".toMediaTypeOrNull()
-        val body = MangasProjectUtils.AndroidHttpClientGET(url)
-        val responseBody = body.toResponseBody(responseType)
-        return Response.Builder()
-            .code(200)
-            .protocol(Protocol.HTTP_2)
-            .request(request)
-            .message("OK")
-            .body(responseBody)
-            .build()
-    }
-
     companion object {
         private val DATE_FORMATTER by lazy {
             SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
         }
+
+        private val TOKEN_REGEX = Regex("window.READER_TOKEN = '(\\S+)';")
+
         const val PREFIX_ID_SEARCH = "id:"
         private val ID_SEARCH_PATTERN = "^id:(\\S+)/(\\d+)$".toRegex()
     }

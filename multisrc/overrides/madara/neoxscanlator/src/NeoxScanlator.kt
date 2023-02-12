@@ -35,7 +35,7 @@ class NeoxScanlator :
         "Neox Scanlator",
         DEFAULT_BASE_URL,
         "pt-BR",
-        SimpleDateFormat("MMMMM dd, yyyy", Locale("pt", "BR"))
+        SimpleDateFormat("MMMMM dd, yyyy", Locale("pt", "BR")),
     ),
     ConfigurableSource {
 
@@ -215,8 +215,11 @@ class NeoxScanlator :
         return asObservable().doOnNext { response ->
             if (!response.isSuccessful) {
                 response.close()
-                val message = if (response.code == 404 || response.code == 403)
-                    MIGRATION_MESSAGE else "HTTP error ${response.code}"
+                val message = if (response.code == 404 || response.code == 403) {
+                    MIGRATION_MESSAGE
+                } else {
+                    "HTTP error ${response.code}"
+                }
                 throw Exception(message)
             }
 

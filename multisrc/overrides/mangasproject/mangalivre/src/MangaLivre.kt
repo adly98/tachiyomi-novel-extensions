@@ -43,7 +43,7 @@ class MangaLivre : MangasProject("Mangá Livre", "https://mangalivre.net", "pt-B
         ContentType("Manhuas", "manhua"),
         ContentType("Webtoons", "webtoon"),
         ContentType("Novels", "novel"),
-        ContentType("Todos", "")
+        ContentType("Todos", ""),
     )
 
     private data class ContentType(val name: String, val value: String) {
@@ -59,7 +59,7 @@ class MangaLivre : MangasProject("Mangá Livre", "https://mangalivre.net", "pt-B
 
     override fun getFilterList(): FilterList = FilterList(
         Filter.Header(FILTER_WARNING),
-        TypeFilter(getContentTypes())
+        TypeFilter(getContentTypes()),
     )
 
     companion object {
