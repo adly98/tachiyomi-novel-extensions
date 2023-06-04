@@ -12,7 +12,7 @@ class MadaraGenerator : ThemeSourceGenerator {
     override val baseVersionCode: Int = 24
 
     override val sources = listOf(
-        SingleLang("Neox Scanlator", "https://neoxscans.net", "pt-BR", overrideVersionCode = 15),
+        SingleLang("Neox Scanlator", "https://neoxscans.net", "pt-BR", overrideVersionCode = 16),
     )
 
     companion object {
