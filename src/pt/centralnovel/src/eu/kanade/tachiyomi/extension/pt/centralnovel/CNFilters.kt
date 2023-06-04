@@ -42,12 +42,13 @@ object CNFilters {
         CNFiltersData.types.map { CheckBoxVal(it.first, false) },
     )
 
-    val filterList = FilterList(
-        OrderFilter(),
-        StatusFilter(),
-        TypesFilter(),
-        GenresFilter(),
-    )
+    val filterList: FilterList
+        get() = FilterList(
+            OrderFilter(),
+            StatusFilter(),
+            TypesFilter(),
+            GenresFilter(),
+        )
 
     data class FilterSearchParams(
         val order: String = "",

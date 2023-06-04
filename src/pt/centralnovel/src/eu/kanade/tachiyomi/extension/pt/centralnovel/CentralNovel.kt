@@ -18,7 +18,6 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
-import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -50,21 +49,22 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
             .build()
     }
 
-    override fun headersBuilder(): Headers.Builder = Headers.Builder()
-        .add("Referer", "$baseUrl/")
+    override fun headersBuilder() = super.headersBuilder().add("Referer", "$baseUrl/")
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
-    val noveltomanga = NovelToManga().apply {
-        val centered = preferences.getBoolean(PREF_CENTERED_KEY, PREF_CENTERED_DEFAULT)
-        alignment = if (centered) Alignment.ALIGN_CENTER else Alignment.ALIGN_NORMAL
-        fontSize = preferences.getInt(PREF_FONTSIZE_KEY, PREF_FONTSIZE_DEFAULT).toFloat()
-        margin = preferences.getInt(PREF_MARGIN_KEY, PREF_MARGIN_DEFAULT).toFloat()
-        pageHeight = preferences.getInt(PREF_HEIGHT_KEY, PREF_HEIGHT_DEFAULT)
-        pageWidth = preferences.getInt(PREF_WIDTH_KEY, PREF_WIDTH_DEFAULT)
-        theme = DefaultThemes.valueOf(preferences.getString(PREF_THEME_KEY, PREF_THEME_DEFAULT)!!)
+    val noveltomanga by lazy {
+        NovelToManga().apply {
+            val centered = preferences.getBoolean(PREF_CENTERED_KEY, PREF_CENTERED_DEFAULT)
+            alignment = if (centered) Alignment.ALIGN_CENTER else Alignment.ALIGN_NORMAL
+            fontSize = preferences.getInt(PREF_FONTSIZE_KEY, PREF_FONTSIZE_DEFAULT).toFloat()
+            margin = preferences.getInt(PREF_MARGIN_KEY, PREF_MARGIN_DEFAULT).toFloat()
+            pageHeight = preferences.getInt(PREF_HEIGHT_KEY, PREF_HEIGHT_DEFAULT)
+            pageWidth = preferences.getInt(PREF_WIDTH_KEY, PREF_WIDTH_DEFAULT)
+            theme = DefaultThemes.valueOf(preferences.getString(PREF_THEME_KEY, PREF_THEME_DEFAULT)!!)
+        }
     }
 
     // ============================== Popular ===============================
@@ -102,12 +102,7 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
                     searchMangaBySlugParse(response, slug)
                 }
         } else {
-            val params = CNFilters.getSearchParameters(filters)
-            client.newCall(searchMangaRequest(page, query, params))
-                .asObservableSuccess()
-                .map { response ->
-                    searchMangaParse(response)
-                }
+            super.fetchSearchManga(page, query, filters)
         }
     }
 
@@ -117,27 +112,27 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
         return MangasPage(listOf(details), false)
     }
 
-    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request = throw Exception("not used")
-
-    private fun searchMangaRequest(page: Int, query: String, filters: CNFilters.FilterSearchParams): Request {
-        val url = "$baseUrl/series/".toHttpUrl().newBuilder()
-        url.addQueryParameter("page", page.toString())
-        if (query.isNotBlank()) {
-            url.addQueryParameter("s", query)
-        }
-        if (filters.status.isNotBlank()) {
-            url.addQueryParameter("status", filters.status)
-        }
-        if (filters.order.isNotBlank()) {
-            url.addQueryParameter("order", filters.order)
-        }
-        if (filters.genres.size > 0) {
-            filters.genres.forEach { url.addQueryParameter("genre[]", it) }
-        }
-        if (filters.types.size > 0) {
-            filters.types.forEach { url.addQueryParameter("types[]", it) }
-        }
-        return GET(url.build().toString(), headers)
+    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+        val params = CNFilters.getSearchParameters(filters)
+        val url = "$baseUrl/series/".toHttpUrl().newBuilder().apply {
+            addQueryParameter("page", page.toString())
+            if (query.isNotBlank()) {
+                addQueryParameter("s", query)
+            }
+            if (params.status.isNotBlank()) {
+                addQueryParameter("status", params.status)
+            }
+            if (params.order.isNotBlank()) {
+                addQueryParameter("order", params.order)
+            }
+            if (params.genres.isNotEmpty()) {
+                params.genres.forEach { addQueryParameter("genre[]", it) }
+            }
+            if (params.types.isNotEmpty()) {
+                params.types.forEach { addQueryParameter("types[]", it) }
+            }
+        }.build()
+        return GET(url.toString(), headers)
     }
 
     override fun getFilterList(): FilterList = CNFilters.filterList
@@ -156,7 +151,7 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
         title = img.attr("title")
         thumbnail_url = img.attr("src")
         author = info.getInfo("Autor:")
-        genre = info.select("div.genxed > a").joinToString(", ") { it.text() }
+        genre = info.select("div.genxed > a").eachText().joinToString()
         status = info.getInfo("Status:")!!.toStatus()
         var desc = document.selectFirst("div.entry-content")!!.text() + "\n"
         document.selectFirst("div.ninfo > span.alter")?.let {
@@ -172,20 +167,19 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
 
     override fun chapterFromElement(element: Element): SChapter = SChapter.create().apply {
         val num = element.selectFirst("div.epl-num")!!.text()
-        chapter_number = runCatching {
-            num.substringAfter("Cap. ").substringBefore(" ").toFloat()
-        }.getOrNull() ?: 0F
+        chapter_number = num.substringAfter("Cap. ")
+            .substringBefore(" ")
+            .toFloatOrNull() ?: 0F
         name = num + " " + element.selectFirst("div.epl-title")!!.text()
         date_upload = element.selectFirst("div.epl-date")!!.text().toDate()
         setUrlWithoutDomain(element.attr("href"))
     }
 
     // =============================== Pages ================================
-
     override fun pageListParse(document: Document): List<Page> {
         val content = document.selectFirst("div.epcontent")!!
         val imgs = content.select("img")
-        // if it has images, then show it
+        // if it has images, then show them
         if (imgs.size > 0) {
             return imgs.mapIndexed { page, img ->
                 Page(page, document.location(), img.attr("src"))
@@ -193,7 +187,7 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
         }
         // else, turn the novel-text into images
         val elements = content.select("p")
-        val lines = elements.map { it.text() }
+        val lines = elements.eachText()
 
         val textPages = noveltomanga.getTextPages(lines)
 
@@ -341,7 +335,6 @@ class CentralNovel : ConfigurableSource, ParsedHttpSource() {
     }
 
     // ============================= Utilities ==============================
-
     private fun String.toDate(): Long {
         return runCatching { DATE_FORMATTER.parse(trim())?.time }
             .getOrNull() ?: 0L
