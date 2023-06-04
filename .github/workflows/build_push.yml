@@ -33,8 +33,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11
-          distribution: adopt
+          java-version: 17
+          distribution: zulu
 
       - name: Generate multisrc sources
         uses: gradle/gradle-command-action@v2
@@ -80,8 +80,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11
-          distribution: adopt
+          java-version: 17
+          distribution: zulu
 
       - name: Prepare signing key
         run: |
@@ -128,8 +128,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11
-          distribution: adopt
+          java-version: 17
+          distribution: zulu
 
       - name: Prepare signing key
         run: |
@@ -171,8 +171,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: 11
-          distribution: adopt
+          java-version: 17
+          distribution: zulu
 
       - name: Checkout master branch
         uses: actions/checkout@v3

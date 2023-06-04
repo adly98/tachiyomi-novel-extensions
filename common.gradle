@@ -2,6 +2,7 @@ apply plugin: 'org.jmailen.kotlinter'
 
 android {
     compileSdkVersion AndroidConfig.compileSdk
+    namespace AndroidConfig.namespace
 
     sourceSets {
         main {
@@ -80,18 +81,6 @@ android {
         jvmTarget = JavaVersion.VERSION_1_8.toString()
         freeCompilerArgs += "-opt-in=kotlinx.serialization.ExperimentalSerializationApi"
     }
-
-    kotlinter {
-        experimentalRules = true
-        disabledRules = [
-            "experimental:argument-list-wrapping", // Doesn't play well with Android Studio
-            "experimental:comment-wrapping",
-        ]
-    }
-}
-
-repositories {
-    mavenCentral()
 }
 
 dependencies {

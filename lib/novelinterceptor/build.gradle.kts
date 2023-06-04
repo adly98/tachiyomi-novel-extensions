@@ -5,19 +5,14 @@ plugins {
 
 android {
     compileSdk = AndroidConfig.compileSdk
+    namespace = "eu.kanade.tachiyomi.lib.novelinterceptor"
 
     defaultConfig {
         minSdk = AndroidConfig.minSdk
-        targetSdk = AndroidConfig.targetSdk
     }
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    compileOnly(libs.kotlin.stdlib)
-    compileOnly(libs.okhttp)
-    compileOnly("com.github.Claudemirovsky:noveltomanga:1.2")
+    compileOnly(libs.bundles.common)
+    compileOnly("com.github.Claudemirovsky:noveltomanga:1.2.1")
 }

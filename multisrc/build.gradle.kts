@@ -1,28 +1,20 @@
-
-import java.io.BufferedReader
-import java.io.InputStreamReader
-
 plugins {
     id("com.android.library")
-    kotlin("android")
-    id("kotlinx-serialization")
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     compileSdk = AndroidConfig.compileSdk
+    namespace = "eu.kanade.tachiyomi.lib.themesources"
 
     defaultConfig {
         minSdk = 29
-        targetSdk = AndroidConfig.targetSdk
     }
 
     kotlinOptions {
         freeCompilerArgs += "-opt-in=kotlinx.serialization.ExperimentalSerializationApi"
     }
-}
-
-repositories {
-    mavenCentral()
 }
 
 configurations {
@@ -60,16 +52,9 @@ tasks {
                 .directory(null).command(javaPath, "-classpath", classPath, mainClass)
                 .redirectErrorStream(true).start()
 
-            val inputStreamReader = InputStreamReader(javaProcess.inputStream)
-            val bufferedReader = BufferedReader(inputStreamReader)
-
-            var s: String?
-            while (bufferedReader.readLine().also { s = it } != null) {
-                logger.info(s)
-            }
-
-            bufferedReader.close()
-            inputStreamReader.close()
+            javaProcess.inputStream
+                .bufferedReader()
+                .forEachLine(logger::info)
 
             val exitCode = javaProcess.waitFor()
             if (exitCode != 0) {

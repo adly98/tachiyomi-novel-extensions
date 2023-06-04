@@ -5,19 +5,13 @@ plugins {
 
 android {
     compileSdk = AndroidConfig.compileSdk
+    namespace = "eu.kanade.tachiyomi.lib.dataimage"
 
     defaultConfig {
         minSdk = AndroidConfig.minSdk
-        targetSdk = AndroidConfig.targetSdk
     }
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
-    compileOnly(libs.kotlin.stdlib)
-    compileOnly(libs.okhttp)
-    compileOnly(libs.jsoup)
+    compileOnly(libs.bundles.common)
 }
