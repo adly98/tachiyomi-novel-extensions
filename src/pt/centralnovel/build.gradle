@@ -11,10 +11,8 @@ ext {
 }
 
 dependencies {
-    implementation "com.github.Claudemirovsky:noveltomanga:1.2.1"
-    implementation(project(":lib-novelinterceptor"))
-
-    compileOnly 'androidx.preference:preference-ktx:1.2.0'
+    implementation(project(":lib-novelsource"))
+    implementation(libs.noveltomanga)
 }
 
 apply from: "$rootDir/common.gradle"

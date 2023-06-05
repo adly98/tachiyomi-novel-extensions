@@ -6,6 +6,7 @@ serialization_version = "1.5.1"
 
 [libraries]
 tachiyomi-lib = { module = "com.github.tachiyomiorg:extensions-lib", version = "1.4.1" }
+noveltomanga = { module = "com.github.Claudemirovsky:noveltomanga", version = "1.2.1" }
 
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib-jdk8", version.ref = "kotlin_version" }
 kotlin-protobuf = { module = "org.jetbrains.kotlinx:kotlinx-serialization-protobuf", version.ref = "serialization_version" }

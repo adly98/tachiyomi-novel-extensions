@@ -5,7 +5,7 @@ plugins {
 
 android {
     compileSdk = AndroidConfig.compileSdk
-    namespace = "eu.kanade.tachiyomi.lib.novelinterceptor"
+    namespace = "eu.kanade.tachiyomi.lib.novelsource"
 
     defaultConfig {
         minSdk = AndroidConfig.minSdk
@@ -14,5 +14,6 @@ android {
 
 dependencies {
     compileOnly(libs.bundles.common)
-    compileOnly("com.github.Claudemirovsky:noveltomanga:1.2.1")
+    compileOnly(libs.noveltomanga)
+    compileOnly("androidx.preference:preference-ktx:1.2.0")
 }
