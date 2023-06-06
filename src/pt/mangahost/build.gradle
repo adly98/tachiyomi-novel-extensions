@@ -1,0 +1,13 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+}
+
+ext {
+    extName = 'Mangá Host'
+    pkgNameSuffix = 'pt.mangahost'
+    extClass = '.MangaHost'
+    extVersionCode = 25
+}
+
+apply from: "$rootDir/common.gradle"
