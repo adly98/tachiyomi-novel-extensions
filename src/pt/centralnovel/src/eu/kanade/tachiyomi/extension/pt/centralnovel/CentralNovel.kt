@@ -162,23 +162,35 @@ class CentralNovel : ParsedHttpSource(), NovelSource {
     // =============================== Pages ================================
     override fun pageListParse(document: Document): List<Page> {
         val content = document.selectFirst("div.epcontent")!!
-        val imgs = content.select("img")
-        // if it has images, then show them
-        if (imgs.size > 0) {
-            return imgs.mapIndexed { page, img ->
-                Page(page, document.location(), img.attr("src"))
+        val elements = content.select("p, img")
+        val last = elements.last()
+        val temporaryList = mutableListOf<Element>()
+        val pageList = buildList {
+            for (element in elements) {
+                when {
+                    element == last || element.tagName() == "img" -> {
+                        val lines = temporaryList.mapNotNull {
+                            it.text().ifEmpty { null }
+                        }
+                        temporaryList.clear()
+                        if (lines.isNotEmpty()) {
+                            val textPages = noveltomanga.getTextPages(lines)
+                            val offset = lastIndex + 1
+                            addAll(
+                                textPages.mapIndexed { pageIndex, pageText ->
+                                    Page(pageIndex + offset, "", createUrl(pageText))
+                                },
+                            )
+                        }
+                        if (element.tagName() == "img") {
+                            add(Page(lastIndex + 1, "", element.attr("src")))
+                        }
+                    }
+                    element.tagName() == "p" -> temporaryList.add(element)
+                }
             }
         }
-        // else, turn the novel-text into images
-        val elements = content.select("p")
-        val lines = elements.eachText()
-
-        val textPages = noveltomanga.getTextPages(lines)
-
-        return textPages
-            .mapIndexed { pageIndex, pageText ->
-                Page(pageIndex, "", createUrl(pageText))
-            }
+        return pageList
     }
 
     override fun imageUrlParse(document: Document) = ""

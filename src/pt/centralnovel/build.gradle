@@ -7,7 +7,7 @@ ext {
     extName = 'Central Novel'
     pkgNameSuffix = 'pt.centralnovel'
     extClass = '.CentralNovel'
-    extVersionCode = 2
+    extVersionCode = 3
 }
 
 dependencies {
