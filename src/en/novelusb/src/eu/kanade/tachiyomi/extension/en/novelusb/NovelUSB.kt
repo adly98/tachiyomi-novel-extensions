@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import eu.kanade.tachiyomi.lib.novelsource.NovelSource
 import eu.kanade.tachiyomi.lib.novelsource.createUrl
 import eu.kanade.tachiyomi.lib.novelsource.getDefaultNovelToMangaInstance
+import eu.kanade.tachiyomi.lib.novelsource.novelInterceptor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.asObservableSuccess
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -33,7 +34,12 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
 
     override val supportsLatest = true
 
-    override val client: OkHttpClient = network.cloudflareClient
+    override val client: OkHttpClient by lazy {
+        network.cloudflareClient
+            .newBuilder()
+            .addInterceptor(novelInterceptor())
+            .build()
+    }
 
     override fun headersBuilder() = super.headersBuilder().add("Referer", "$baseUrl/")
 
