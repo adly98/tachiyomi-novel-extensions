@@ -29,18 +29,13 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
 
     override val name = "Novel USB"
 
-    override val baseUrl = "https://novelusb.com/"
+    override val baseUrl = "https://novelusb.com"
 
     override val lang = "en"
 
     override val supportsLatest = true
 
-    override val client: OkHttpClient by lazy {
-        network.cloudflareClient
-            .newBuilder()
-            .addInterceptor(novelInterceptor())
-            .build()
-    }
+    override val client: OkHttpClient = network.cloudflareClient
 
     override fun headersBuilder() = super.headersBuilder().add("Referer", "$baseUrl/")
 
