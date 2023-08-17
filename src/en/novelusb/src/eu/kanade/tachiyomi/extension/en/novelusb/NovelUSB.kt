@@ -140,7 +140,7 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
 
     // =============================== Pages ================================
     override fun pageListParse(document: Document): List<Page> {
-        val content = document.selectFirst("div.epcontent")!!
+        val content = document.selectFirst("div#chr-content")!!
         val elements = content.select("p, img")
         val last = elements.last()
         val temporaryList = mutableListOf<Element>()
