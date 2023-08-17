@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import eu.kanade.tachiyomi.lib.novelsource.NovelSource
 import eu.kanade.tachiyomi.lib.novelsource.createUrl
 import eu.kanade.tachiyomi.lib.novelsource.getDefaultNovelToMangaInstance
-import eu.kanade.tachiyomi.lib.novelsource.novelInterceptor
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.asObservableSuccess
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -15,7 +14,6 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import eu.kanade.tachiyomi.util.asJsoup
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -48,12 +46,12 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
     // ============================== Popular ===============================
     override fun popularMangaRequest(page: Int): Request = GET("$baseUrl/sort/top-view?page=$page", headers)
 
-    override fun popularMangaSelector(): String = "div.list-novel div.row"
+    override fun popularMangaSelector(): String = "div.archive div.row"
 
     override fun popularMangaFromElement(element: Element): SManga = SManga.create().apply {
         val imgElement = element.selectFirst("img")!!
         title = imgElement.attr("alt")
-        thumbnail_url = imgElement.attr("src")
+        thumbnail_url = imgElement.attr("src").replace(Regex("""novel_.*?/"""),"novel/")
         setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
     }
 
@@ -63,18 +61,18 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
     override fun latestUpdatesRequest(page: Int): Request =
         GET("$baseUrl/sort/daily-update?page=$page", headers)
 
-    override fun latestUpdatesSelector() = "div.archive div.row"
+    override fun latestUpdatesSelector() = popularMangaSelector()
 
     override fun latestUpdatesFromElement(element: Element): SManga =
         popularMangaFromElement(element)
 
-    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
+    override fun latestUpdatesNextPageSelector() = popularMangaSelector()
 
     // =============================== Search ===============================
     override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
         return if (query.startsWith(PREFIX_SEARCH)) {
             val slug = query.removePrefix(PREFIX_SEARCH)
-            client.newCall(GET("$baseUrl/series/$slug"))
+            client.newCall(GET("$baseUrl/novel-book/$slug"))
                 .asObservableSuccess()
                 .map { response ->
                     searchMangaBySlugParse(response, slug)
@@ -86,48 +84,35 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
 
     private fun searchMangaBySlugParse(response: Response, slug: String): MangasPage {
         val details = mangaDetailsParse(response)
-        details.url = "/series/$slug"
+        details.url = "/novel-book/$slug"
         return MangasPage(listOf(details), false)
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val params = NovelUSBFilters.getSearchParameters(filters)
-        val url = "$baseUrl/series/".toHttpUrl().newBuilder().apply {
-            addQueryParameter("page", page.toString())
-            if (query.isNotBlank()) {
-                addQueryParameter("s", query)
-            }
-            if (params.status.isNotBlank()) {
-                addQueryParameter("status", params.status)
-            }
-            if (params.order.isNotBlank()) {
-                addQueryParameter("order", params.order)
-            }
-            if (params.genres.isNotEmpty()) {
-                params.genres.forEach { addQueryParameter("genre[]", it) }
-            }
-            if (params.types.isNotEmpty()) {
-                params.types.forEach { addQueryParameter("types[]", it) }
-            }
-        }.build()
-        return GET(url.toString(), headers)
+        return if(query.isNotBlank())
+            GET("$baseUrl/search?keyword=$query&page=$page", headers)
+        else if(Regex("top-hot|completed") in params.genres)
+            GET("$baseUrl/sort/${params.genres + params.status}?page=$page")
+        else
+            GET("$baseUrl/genre/${params.genres + params.status}?page=$page")
     }
 
     override fun getFilterList(): FilterList = NovelUSBFilters.filterList
 
-    override fun searchMangaSelector() = latestUpdatesSelector()
+    override fun searchMangaSelector() = popularMangaSelector()
 
     override fun searchMangaFromElement(element: Element) =
         popularMangaFromElement(element)
 
-    override fun searchMangaNextPageSelector() = latestUpdatesNextPageSelector()
+    override fun searchMangaNextPageSelector() = popularMangaSelector()
 
     // =========================== Manga Details ============================
     override fun mangaDetailsParse(document: Document): SManga = SManga.create().apply {
         val info = document.selectFirst("ul.info-meta")!!
         title = document.select("div.desc h3.title").text()
         thumbnail_url = document.select("div.info-holder img").attr("src")
-        author = info.getInfo("Autor:")
+        author = info.getInfo("Author:")
         genre = info.select("li:contains(Genre:) a").eachText().joinToString()
         status = info.getInfo("Status:")!!.toStatus()
         description = document.selectFirst("div.desc-text")!!.text()
@@ -139,10 +124,9 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
     override fun chapterListParse(response: Response): List<SChapter> {
         val novelID = response.asJsoup().selectFirst("a#btn-follow")!!.attr("data-id")
         val chapters = client.newCall(GET("$baseUrl/ajax/chapter-archive?novelId=$novelID")).execute().asJsoup()
-        chapters.select(chapterListSelector()).map {
+        return chapters.select(chapterListSelector()).map {
             chapterFromElement(it)
         }
-        return super.chapterListParse(response)
     }
 
     override fun chapterFromElement(element: Element): SChapter = SChapter.create().apply {

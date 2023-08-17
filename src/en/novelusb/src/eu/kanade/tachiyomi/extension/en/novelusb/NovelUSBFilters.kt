@@ -16,141 +16,95 @@ object NovelUSBFilters {
         fun toQueryPart() = vals[state].second
     }
 
-    open class CheckBoxFilterList(name: String, values: List<CheckBox>) : Filter.Group<Filter.CheckBox>(name, values)
-    private class CheckBoxVal(name: String, state: Boolean = false) : Filter.CheckBox(name, state)
-
-    private inline fun <reified R> FilterList.getFirst(): R {
-        return this.filterIsInstance<R>().first()
-    }
-
     private inline fun <reified R> FilterList.asQueryPart(): String {
         return this.filterIsInstance<R>().joinToString("") {
             (it as QueryPartFilter).toQueryPart()
         }
     }
 
-    class OrderFilter : QueryPartFilter("Ordenar por", CNFiltersData.orders)
     class StatusFilter : QueryPartFilter("Status", CNFiltersData.status)
+    class GenresFilter : QueryPartFilter("Genre", CNFiltersData.genres)
 
-    class GenresFilter : CheckBoxFilterList(
-        "Gêneros",
-        CNFiltersData.genres.map { CheckBoxVal(it.first, false) },
-    )
-
-    class TypesFilter : CheckBoxFilterList(
-        "Tipo",
-        CNFiltersData.types.map { CheckBoxVal(it.first, false) },
-    )
 
     val filterList: FilterList
         get() = FilterList(
-            OrderFilter(),
-            StatusFilter(),
-            TypesFilter(),
             GenresFilter(),
+            StatusFilter(),
         )
 
     data class FilterSearchParams(
-        val order: String = "",
+        val genres: String = "",
         val status: String = "",
-        val types: List<String> = emptyList<String>(),
-        val genres: List<String> = emptyList<String>(),
     )
-
-    private inline fun <reified R> FilterList.parseCheckbox(
-        array: Array<Pair<String, String>>,
-    ): List<String> {
-        val items = (this.getFirst<R>() as CheckBoxFilterList)
-            .state
-            .mapNotNull { item ->
-                if (item.state) {
-                    array.find { it.first == item.name }!!.second
-                } else { null }
-            }.toList()
-        return items
-    }
 
     internal fun getSearchParameters(filters: FilterList): FilterSearchParams {
         return FilterSearchParams(
-            filters.asQueryPart<OrderFilter>(),
+            filters.asQueryPart<GenresFilter>(),
             filters.asQueryPart<StatusFilter>(),
-            filters.parseCheckbox<TypesFilter>(CNFiltersData.types),
-            filters.parseCheckbox<GenresFilter>(CNFiltersData.genres),
         )
     }
 
     private object CNFiltersData {
-        val every = Pair("Qualquer um", "")
-
-        val types = arrayOf(
-            every,
-            Pair("Light Novel", "light-novel"),
-            Pair("Novel Chinesa", "novel-chinesa"),
-            Pair("Novel Coreana", "novel-coreana"),
-            Pair("Novel Japonesa", "novel-japonesa"),
-            Pair("Novel Ocidental", "novel-ocidental"),
-            Pair("Webnovel", "webnovel"),
-        )
 
         val status = arrayOf(
-            every,
-            Pair("Em andamento", "em andamento"),
-            Pair("Hiato", "hiato"),
-            Pair("Completo", "completo"),
-        )
-
-        val orders = arrayOf(
-            Pair("Padrão", ""),
-            Pair("A-Z", "title"),
-            Pair("Z-A", "titlereverse"),
-            Pair("Últ. Att", "update"),
-            Pair("Últ. Add", "latest"),
-            Pair("Populares", "popular"),
+            Pair("All Novels", ""),
+            Pair("Completed", "/completed"),
         )
 
         val genres = arrayOf(
-            every,
-            Pair("Ação", "acao"),
-            Pair("Adulto", "adulto"),
+            Pair("Hot Novels", "top-hot"),
+            Pair("Completed Novels", "completed"),
+            Pair("Action", "action"),
+            Pair("Adult", "adult"),
             Pair("Adventure", "adventure"),
-            Pair("Artes Marciais", "artes-marciais"),
-            Pair("Aventura", "aventura"),
-            Pair("Comédia", "comedia"),
+            Pair("Anime", "anime"),
+            Pair("Arts", "arts"),
             Pair("Comedy", "comedy"),
-            Pair("Cotidiano", "cotidiano"),
-            Pair("Cultivo", "cultivo"),
             Pair("Drama", "drama"),
+            Pair("Eastern", "eastern"),
             Pair("Ecchi", "ecchi"),
-            Pair("Escolar", "escolar"),
-            Pair("Esportes", "esportes"),
-            Pair("Fantasia", "fantasia"),
-            Pair("Ficção Científica", "ficcao-cientifica"),
-            Pair("Harém", "harem"),
+            Pair("Fan-fiction", "fan-fiction"),
+            Pair("Fantasy", "fantasy"),
+            Pair("Game", "game"),
+            Pair("Gender bender", "gender-bender"),
+            Pair("Harem", "harem"),
+            Pair("Historical", "historical"),
+            Pair("Horror", "horror"),
             Pair("Isekai", "isekai"),
-            Pair("Magia", "magia"),
+            Pair("Josei", "josei"),
+            Pair("Magic", "magic"),
+            Pair("Magical realism", "magical-realism"),
+            Pair("Manhua", "manhua"),
+            Pair("Martial arts", "martial-arts"),
+            Pair("Mature", "mature"),
             Pair("Mecha", "mecha"),
-            Pair("Medieval", "medieval"),
-            Pair("Mistério", "misterio"),
-            Pair("Mitologia", "mitologia"),
-            Pair("Monstros", "monstros"),
-            Pair("Pet", "pet"),
-            Pair("Protagonista Feminina", "protagonista-feminina"),
-            Pair("Protagonista Maligno", "protagonista-maligno"),
-            Pair("Psicológico", "psicologico"),
-            Pair("Reencarnação", "reencarnacao"),
+            Pair("Military", "military"),
+            Pair("Modern life", "modern-life"),
+            Pair("Movies", "movies"),
+            Pair("Mystery", "mystery"),
+            Pair("Psychological", "psychological"),
+            Pair("Realistic fiction", "realistic-fiction"),
+            Pair("Reincarnation", "reincarnation"),
             Pair("Romance", "romance"),
+            Pair("School life", "school-life"),
+            Pair("Sci-fi", "sci-fi"),
             Pair("Seinen", "seinen"),
+            Pair("Shoujo", "shoujo"),
+            Pair("Shoujo ai", "shoujo-ai"),
             Pair("Shounen", "shounen"),
-            Pair("Sistema", "sistema"),
-            Pair("Sistema de Jogo", "sistema-de-jogo"),
-            Pair("Slice of Life", "slice-of-life"),
-            Pair("Sobrenatural", "sobrenatural"),
+            Pair("Shounen ai", "shounen-ai"),
+            Pair("Slice of life", "slice-of-life"),
+            Pair("Smut", "smut"),
+            Pair("Sports", "sports"),
             Pair("Supernatural", "supernatural"),
-            Pair("Tragédia", "tragedia"),
-            Pair("Vida Escolar", "vida-escolar"),
-            Pair("VRMMO", "vrmmo"),
+            Pair("System", "system"),
+            Pair("Tragedy", "tragedy"),
+            Pair("Urban life", "urban-life"),
+            Pair("Video games", "video-games"),
+            Pair("War", "war"),
+            Pair("Wuxia", "wuxia"),
             Pair("Xianxia", "xianxia"),
-            Pair("Xuanhuan", "xuanhuan"),
+            Pair("Xuanhuan", "xuanhuan")
         )
     }
 }
