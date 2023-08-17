@@ -51,7 +51,7 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
     override fun popularMangaFromElement(element: Element): SManga = SManga.create().apply {
         val imgElement = element.selectFirst("img")!!
         title = imgElement.attr("alt")
-        thumbnail_url = imgElement.attr("src").replace(Regex("""novel_.*?/"""),"novel/")
+        thumbnail_url = imgElement.attr("src").replace("novel_200_89","novel")
         setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
     }
 
@@ -110,7 +110,7 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
     // =========================== Manga Details ============================
     override fun mangaDetailsParse(document: Document): SManga = SManga.create().apply {
         val info = document.selectFirst("ul.info-meta")!!
-        title = document.select("div.desc h3.title").text()
+        title = document.select("div.books div.desc h3.title").text()
         thumbnail_url = document.select("div.info-holder img").attr("src")
         author = info.getInfo("Author:")
         genre = info.select("li:contains(Genre:) a").eachText().joinToString()
@@ -122,17 +122,17 @@ class NovelUSB : ParsedHttpSource(), NovelSource {
     override fun chapterListSelector() = "ul.list-chapter li a"
 
     override fun chapterListParse(response: Response): List<SChapter> {
-        val novelID = response.asJsoup().selectFirst("a#btn-follow")!!.attr("data-id")
+        val novelID = response.body.string().substringAfter("this.page.identifier = '").substringBefore("';")
         val chapters = client.newCall(GET("$baseUrl/ajax/chapter-archive?novelId=$novelID")).execute().asJsoup()
         return chapters.select(chapterListSelector()).map {
             chapterFromElement(it)
-        }
+        }.reversed()
     }
 
     override fun chapterFromElement(element: Element): SChapter = SChapter.create().apply {
         val title = element.attr("title")
         chapter_number = title.substringAfter("Chapter ")
-            .substringBefore(" ")
+            .substringBefore(" ").substringBefore(":")
             .toFloatOrNull() ?: 0F
         name = title
         setUrlWithoutDomain(element.attr("href"))
