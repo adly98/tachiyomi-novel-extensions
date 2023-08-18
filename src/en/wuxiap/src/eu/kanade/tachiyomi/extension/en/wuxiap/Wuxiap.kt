@@ -30,7 +30,7 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
 
     override val name = "Wuxiap"
 
-    override val baseUrl = "https://wuxiap.com"
+    override val baseUrl = "https://www.wuxiap.com"
 
     override val lang = "en"
 
@@ -108,7 +108,7 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
 
             val noRedirectClient = OkHttpClient().newBuilder().followRedirects(false).build()
             val newLocation = noRedirectClient.newCall(POST("$baseUrl/e/search/index.php", headers, data)).execute().header("Location")
-            GET("https://www.wuxiap.com/e/search/$newLocation&page=${page - 1}")
+            GET("$baseUrl/e/search/$newLocation&page=${page - 1}", headers)
             //throw Exception("Search doesn't work atm")
         }
         else
@@ -151,7 +151,7 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
                 chapterFromElement(chapter)
             }
         }
-        return chapterList
+        return chapterList.reversed()
     }
     override fun chapterFromElement(element: Element): SChapter = SChapter.create().apply {
         chapter_number = element.select(".chapter-no").text().toFloatOrNull() ?: 0F
