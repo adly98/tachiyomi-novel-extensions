@@ -104,15 +104,15 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val params = WuxiapFilters.getSearchParameters(filters)
         return if(query.isNotBlank()){
-            /*val data = FormBody.Builder()
+            val data = FormBody.Builder()
                 .add("show", "title")
                 .add("tempid", "1")
                 .add("tbname", "news")
                 .add("keyboard", query)
                 .build()
             val newUrl = client.newCall(POST("$baseUrl/e/search/index.php", headers, data)).execute()
-            GET("${newUrl.header("Location")}&page=${page - 1}")*/
-            throw Exception("Search doesn't work atm")
+            GET("${newUrl.request.url}&page=${page - 1}")
+            //throw Exception("Search doesn't work atm")
         }
         else
             GET("$baseUrl/list/${params.genres}/${params.status}-${params.sort}-${page - 1}.html")
