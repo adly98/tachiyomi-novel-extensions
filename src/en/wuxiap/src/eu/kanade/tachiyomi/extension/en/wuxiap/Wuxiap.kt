@@ -111,7 +111,7 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
                 .add("keyboard", query)
                 .build()
             val newUrl = client.newCall(POST("$baseUrl/e/search/index.php", headers, data)).execute()
-            GET("${newUrl.request.url}&page=${page - 1}")
+            GET("${newUrl.request.url.toString().replace("https://","")}&page=${page - 1}")
             //throw Exception("Search doesn't work atm")
         }
         else
@@ -145,18 +145,16 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
         val lastPageUrl = response.asJsoup().select("ul.pagination li a:contains(>>)").attr("href")
         val lastPAge = lastPageUrl.substringAfter("page=").substringBefore("&").toInt()
         val urlPrefix = baseUrl + lastPageUrl.substringBefore("page=") + "page="
-        val urlSuffix = baseUrl + lastPageUrl.substringAfter("&") + "&"
-        return (0..lastPAge).parallelMap{ page ->
-            val chapters = client.newCall(GET(urlPrefix + page.toString() + urlSuffix)).execute().asJsoup()
-            chapters.select(chapterListSelector()).map { chapter ->
+        val urlSuffix = lastPageUrl.substringAfter("&") + "&"
+        val chapterList = mutableListOf<SChapter>()
+        for(i in 0..lastPAge){
+            val chapters = client.newCall(GET(urlPrefix + i.toString() + urlSuffix)).execute().asJsoup()
+            chapterList += chapters.select(chapterListSelector()).map { chapter ->
                 chapterFromElement(chapter)
             }
-        }.flatten().reversed()
-    }
-    private inline fun <A, B> Iterable<A>.parallelMap(crossinline f: suspend (A) -> B): List<B> =
-        runBlocking {
-            map { async(Dispatchers.Default) { f(it) } }.awaitAll()
         }
+        return chapterList
+    }
     override fun chapterFromElement(element: Element): SChapter = SChapter.create().apply {
         chapter_number = element.select(".chapter-no").text().toFloatOrNull() ?: 0F
         name = element.select(".chapter-title").text()
