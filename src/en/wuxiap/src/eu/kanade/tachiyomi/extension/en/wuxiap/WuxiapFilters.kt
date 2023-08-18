@@ -24,70 +24,73 @@ object WuxiapFilters {
 
     class StatusFilter : QueryPartFilter("Status", CNFiltersData.status)
     class GenresFilter : QueryPartFilter("Genre", CNFiltersData.genres)
+    class SortFilter : QueryPartFilter("Sort", CNFiltersData.sort)
 
 
     val filterList: FilterList
         get() = FilterList(
             GenresFilter(),
             StatusFilter(),
+            SortFilter(),
         )
 
     data class FilterSearchParams(
         val genres: String = "",
         val status: String = "",
+        val sort: String = "",
     )
 
     internal fun getSearchParameters(filters: FilterList): FilterSearchParams {
         return FilterSearchParams(
             filters.asQueryPart<GenresFilter>(),
             filters.asQueryPart<StatusFilter>(),
+            filters.asQueryPart<SortFilter>(),
         )
     }
 
     private object CNFiltersData {
 
-        val status = arrayOf(
-            Pair("All Novels", ""),
-            Pair("Completed", "/completed"),
-        )
-
         val genres = arrayOf(
-            Pair("Hot Novels", "top-hot"),
-            Pair("Completed Novels", "completed"),
+            Pair("All", "all"),
             Pair("Action", "action"),
             Pair("Adult", "adult"),
             Pair("Adventure", "adventure"),
-            Pair("Anime", "anime"),
-            Pair("Arts", "arts"),
             Pair("Comedy", "comedy"),
+            Pair("Contemporary Romance", "contemporary-romance"),
             Pair("Drama", "drama"),
-            Pair("Eastern", "eastern"),
+            Pair("Eastern Fantasy", "eastern-fantasy"),
             Pair("Ecchi", "ecchi"),
+            Pair("Erciyuan", "erciyuan"),
+            Pair("Faloo", "faloo"),
             Pair("Fan-fiction", "fan-fiction"),
             Pair("Fantasy", "fantasy"),
+            Pair("Fantasy Romance", "fantasy-romance"),
             Pair("Game", "game"),
             Pair("Gender bender", "gender-bender"),
             Pair("Harem", "harem"),
+            Pair("Hentai", "hentai"),
             Pair("Historical", "historical"),
             Pair("Horror", "horror"),
             Pair("Isekai", "isekai"),
             Pair("Josei", "josei"),
-            Pair("Magic", "magic"),
             Pair("Magical realism", "magical-realism"),
-            Pair("Manhua", "manhua"),
+            Pair("Magic", "magic"),
             Pair("Martial arts", "martial-arts"),
             Pair("Mature", "mature"),
             Pair("Mecha", "mecha"),
-            Pair("Military", "military"),
             Pair("Modern life", "modern-life"),
             Pair("Movies", "movies"),
+            Pair("Military", "military"),
             Pair("Mystery", "mystery"),
+            Pair("Official Circles", "official_circles"),
             Pair("Psychological", "psychological"),
             Pair("Realistic fiction", "realistic-fiction"),
             Pair("Reincarnation", "reincarnation"),
             Pair("Romance", "romance"),
             Pair("School life", "school-life"),
             Pair("Sci-fi", "sci-fi"),
+            Pair("Science Fiction", "science_fiction"),
+            Pair("Suspense Thriller", "suspense_thriller"),
             Pair("Seinen", "seinen"),
             Pair("Shoujo", "shoujo"),
             Pair("Shoujo ai", "shoujo-ai"),
@@ -97,14 +100,32 @@ object WuxiapFilters {
             Pair("Smut", "smut"),
             Pair("Sports", "sports"),
             Pair("Supernatural", "supernatural"),
-            Pair("System", "system"),
             Pair("Tragedy", "tragedy"),
-            Pair("Urban life", "urban-life"),
+            Pair("Two-Dimensional", "two-dimensional"),
+            Pair("Travel Through Time", "travel_through_time"),
+            Pair("Urban", "urban"),
+            Pair("Urban Life", "urban-life"),
             Pair("Video games", "video-games"),
-            Pair("War", "war"),
+            Pair("Virtual Reality", "virtual-reality"),
             Pair("Wuxia", "wuxia"),
+            Pair("Wuxia Xianxia", "wuxia_xianxia"),
             Pair("Xianxia", "xianxia"),
-            Pair("Xuanhuan", "xuanhuan")
+            Pair("Xuanhuan", "xuanhuan"),
+            Pair("Chinese", "chinese"),
+            Pair("Korean", "korean"),
+            Pair("Japanese", "japanese"),
+        )
+
+        val status = arrayOf(
+            Pair("All", "all"),
+            Pair("Completed", "Completed"),
+            Pair("Ongoing", "Ongoing"),
+        )
+
+        val sort = arrayOf(
+            Pair("Popular", "onclick"),
+            Pair("New", "newstime"),
+            Pair("Updates", "lastdotime"),
         )
     }
 }

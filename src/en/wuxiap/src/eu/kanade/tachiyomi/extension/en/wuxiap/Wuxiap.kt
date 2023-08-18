@@ -16,6 +16,11 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import eu.kanade.tachiyomi.util.asJsoup
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -99,19 +104,18 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val params = WuxiapFilters.getSearchParameters(filters)
         return if(query.isNotBlank()){
-            val data = FormBody.Builder()
+            /*val data = FormBody.Builder()
                 .add("show", "title")
                 .add("tempid", "1")
                 .add("tbname", "news")
                 .add("keyboard", query)
                 .build()
             val newUrl = client.newCall(POST("$baseUrl/e/search/index.php", headers, data)).execute()
-            GET("${newUrl.header("Location")}&page=${page - 1}")
+            GET("${newUrl.header("Location")}&page=${page - 1}")*/
+            throw Exception("Search doesn't work atm")
         }
-        else if(Regex("top-hot|completed") in params.genres)
-            GET("$baseUrl/sort/${params.genres + params.status}?page=$page")
         else
-            GET("$baseUrl/genre/${params.genres + params.status}?page=$page")
+            GET("$baseUrl/list/${params.genres}/${params.status}-${params.sort}-${page - 1}.html")
     }
 
     override fun getFilterList(): FilterList = WuxiapFilters.filterList
@@ -135,28 +139,33 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
     }
 
     // ============================== Chapters ==============================
-    override fun chapterListSelector() = "ul.list-chapter li a"
+    override fun chapterListSelector() = "ul.chapter-list li a"
 
     override fun chapterListParse(response: Response): List<SChapter> {
-        val novelID = response.body.string().substringAfter("this.page.identifier = '").substringBefore("';")
-        val chapters = client.newCall(GET("$baseUrl/ajax/chapter-archive?novelId=$novelID")).execute().asJsoup()
-        return chapters.select(chapterListSelector()).map {
-            chapterFromElement(it)
-        }.reversed()
+        val lastPageUrl = response.asJsoup().select("ul.pagination li a:contains(>>)").attr("href")
+        val lastPAge = lastPageUrl.substringAfter("page=").substringBefore("&").toInt()
+        val urlPrefix = baseUrl + lastPageUrl.substringBefore("page=") + "page="
+        val urlSuffix = baseUrl + lastPageUrl.substringAfter("&") + "&"
+        return (0..lastPAge).parallelMap{ page ->
+            val chapters = client.newCall(GET(urlPrefix + page.toString() + urlSuffix)).execute().asJsoup()
+            chapters.select(chapterListSelector()).map { chapter ->
+                chapterFromElement(chapter)
+            }
+        }.flatten().reversed()
     }
-
+    private inline fun <A, B> Iterable<A>.parallelMap(crossinline f: suspend (A) -> B): List<B> =
+        runBlocking {
+            map { async(Dispatchers.Default) { f(it) } }.awaitAll()
+        }
     override fun chapterFromElement(element: Element): SChapter = SChapter.create().apply {
-        val title = element.attr("title")
-        chapter_number = title.substringAfter("Chapter ")
-            .substringBefore(" ").substringBefore(":")
-            .toFloatOrNull() ?: 0F
-        name = title
-        setUrlWithoutDomain(element.attr("href"))
+        chapter_number = element.select(".chapter-no").text().toFloatOrNull() ?: 0F
+        name = element.select(".chapter-title").text()
+        setUrlWithoutDomain(baseUrl + element.attr("href"))
     }
 
     // =============================== Pages ================================
     override fun pageListParse(document: Document): List<Page> {
-        val content = document.selectFirst("div#chr-content")!!
+        val content = document.selectFirst("div.chapter-content")!!
         val elements = content.select("p, img")
         val last = elements.last()
         val temporaryList = mutableListOf<Element>()
