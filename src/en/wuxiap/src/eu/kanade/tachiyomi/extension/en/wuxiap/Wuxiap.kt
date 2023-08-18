@@ -16,11 +16,6 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import eu.kanade.tachiyomi.util.asJsoup
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -110,8 +105,10 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
                 .add("tbname", "news")
                 .add("keyboard", query)
                 .build()
-            val newUrl = client.newCall(POST("$baseUrl/e/search/index.php", headers, data)).execute()
-            GET("${newUrl.request.url.toString().replace("https://","")}&page=${page - 1}")
+
+            val noRedirectClient = OkHttpClient().newBuilder().followRedirects(false).build()
+            val newLocation = noRedirectClient.newCall(POST("$baseUrl/e/search/index.php", headers, data)).execute().header("Location")
+            GET("https://www.wuxiap.com/e/search/$newLocation&page=${page - 1}")
             //throw Exception("Search doesn't work atm")
         }
         else
@@ -142,10 +139,11 @@ class Wuxiap : ParsedHttpSource(), NovelSource {
     override fun chapterListSelector() = "ul.chapter-list li a"
 
     override fun chapterListParse(response: Response): List<SChapter> {
-        val lastPageUrl = response.asJsoup().select("ul.pagination li a:contains(>>)").attr("href")
+        val lastPageUrl = response.asJsoup()
+            .select("ul.pagination li a").last()!!.attr("href")
         val lastPAge = lastPageUrl.substringAfter("page=").substringBefore("&").toInt()
-        val urlPrefix = baseUrl + lastPageUrl.substringBefore("page=") + "page="
-        val urlSuffix = lastPageUrl.substringAfter("&") + "&"
+        val urlPrefix = "$baseUrl/e/extend/fy.php?page="
+        val urlSuffix = "&wjm=" + response.request.url.toString().substringAfter("novel/").substringBefore(".html")
         val chapterList = mutableListOf<SChapter>()
         for(i in 0..lastPAge){
             val chapters = client.newCall(GET(urlPrefix + i.toString() + urlSuffix)).execute().asJsoup()
