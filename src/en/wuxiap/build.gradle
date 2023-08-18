@@ -1,0 +1,18 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+}
+
+ext {
+    extName = 'Wuxiap'
+    pkgNameSuffix = 'en.wuxiap'
+    extClass = '.Wuxiap'
+    extVersionCode = 1
+}
+
+dependencies {
+    implementation(project(":lib-novelsource"))
+    implementation(libs.noveltomanga)
+}
+
+apply from: "$rootDir/common.gradle"
